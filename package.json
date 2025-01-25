@@ -1,0 +1,49 @@
+{
+   "name": "packages-instpector",
+   "displayName": "Packages Inspector",
+   "version": "0.0.1",
+   "engines": {
+      "vscode": "^1.95.0"
+   },
+   "categories": [
+      "Other"
+   ],
+   "activationEvents": [
+      "workspaceContains:**/package.json"
+   ],
+   "main": "./out/extension.js",
+   "contributes": {
+      "commands": [
+         {
+            "command": "pkgi.inspect",
+            "title": "Inspector: Check dependencies",
+            "shortTitle": "Inspect"
+         }
+      ]
+   },
+   "scripts": {
+      "vscode:prepublish": "npm run compile",
+      "compile": "tsc -p ./",
+      "watch": "tsc -watch -p ./",
+      "pretest": "npm run compile && npm run lint",
+      "lint": "eslint src",
+      "lint:fix": "eslint src --fix",
+      "test": "vscode-test"
+   },
+   "dependencies": {
+      "@npmcli/arborist": "^9.0.0"
+   },
+   "devDependencies": {
+      "@stylistic/eslint-plugin": "^2.13.0",
+      "@types/mocha": "^10.0.10",
+      "@types/node": "20.x",
+      "@types/npmcli__arborist": "^5.6.11",
+      "@types/vscode": "^1.96.0",
+      "@typescript-eslint/eslint-plugin": "^8.17.0",
+      "@typescript-eslint/parser": "^8.17.0",
+      "@vscode/test-cli": "^0.0.10",
+      "@vscode/test-electron": "^2.4.1",
+      "eslint": "^9.16.0",
+      "typescript": "^5.7.2"
+   }
+}
