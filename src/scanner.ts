@@ -65,6 +65,11 @@ export class Scanner {
 
    scan(fileUri: vscode.Uri) {
       const rootFolder = this.getProjectFolder(fileUri);
+
+      if (!fs.existsSync(path.join(rootFolder, 'package.json'))) {
+         return;
+      }
+
       const task = this._projectScanners.get(rootFolder) ?? new ScanTask(rootFolder);
 
       if (!this._projectScanners.has(rootFolder)) {
