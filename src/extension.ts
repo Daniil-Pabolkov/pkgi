@@ -1,29 +1,17 @@
 import vscode from 'vscode';
-import { inspectProblems } from './command-process/inspect-problems';
-import { Inspector } from './core';
+
+import { Scanner } from './scanner';
 
 export function activate(context: vscode.ExtensionContext) {
-   const inspector = new Inspector();
-   context.globalState.update('inspector', inspector);
+   const scanner = new Scanner();
 
-   vscode.workspace.workspaceFolders?.forEach(folder => {
-      inspector.addFolder(folder);
-   });
+   context.subscriptions.push(...scanner.disposableItems());
 
-   vscode.workspace.onDidChangeWorkspaceFolders((event) => {
-      event.added.forEach((folder) => {
-         inspector.addFolder(folder);
-      });
-      event.removed.forEach((folder) => {
-         inspector.removeFolder(folder);
-      });
-   });
-
-   const inspectCommand = vscode.commands.registerCommand('pkgi.inspect', () => {
-      inspectProblems(inspector, inspectCommand);
-   });
-
-   context.subscriptions.push(inspectCommand);
+   context.subscriptions.push(
+      vscode.commands.registerCommand('pkgi.inspect', () => {
+         scanner.force();
+      })
+   );
 }
 
 export function deactivate() { }

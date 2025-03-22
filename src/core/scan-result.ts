@@ -1,4 +1,4 @@
-import Arborist from '@npmcli/arborist';
+import type Arborist from '@npmcli/arborist';
 
 export class ScanResult {
    readonly hasProblems: boolean;

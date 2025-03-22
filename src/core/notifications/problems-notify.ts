@@ -1,5 +1,7 @@
 import vscode from 'vscode';
-import { ScanResult } from '../scan-result';
+import path from 'path';
+
+import type { ScanResult } from '../scan-result';
 import { NotifyActions } from './consts';
 
 function withPlural(
@@ -26,15 +28,26 @@ const packages = withPluralFactory('package', countWord);
 
 export async function notifyByResults(
    scanResults: ScanResult,
+   projectPath?: string,
    workspaceFolder?: vscode.WorkspaceFolder
 ) {
-   const hasFatals = 0 < (scanResults.missing.length + scanResults.invalid.length);
    const totalCount = scanResults.missing.length + scanResults.invalid.length + scanResults.extraneous.length;
+
+   if (totalCount === 0) {
+      return 0;
+   }
+
+   const hasFatals = 0 < (scanResults.missing.length + scanResults.invalid.length);
+   const relativePath = workspaceFolder
+      ? (!projectPath || workspaceFolder.uri.fsPath === projectPath
+         ? workspaceFolder.name
+         : path.relative(path.join(workspaceFolder.uri.fsPath, '..'), projectPath))
+      : projectPath;
 
    let message = `Found ${problems(totalCount)}`;
 
-   if (workspaceFolder) {
-      message += ` in "${workspaceFolder.name}"`;
+   if (relativePath) {
+      message += ` in "${relativePath}"`;
    }
 
    const list = [];
@@ -64,7 +77,7 @@ export async function notifyByResults(
    if (action === NotifyActions.OpenTerminal) {
       const tmlMessage = (
          `${problems(totalCount)} founds`
-         + (workspaceFolder ? ` in "${workspaceFolder.name}"` : '')
+         + (relativePath ? ` in "${relativePath}"` : '')
          + ':\n\r'
          + `\tMissing:    ${packages(scanResults.missing.length)}\n\r`
          + `\tInvalid:    ${packages(scanResults.invalid.length)}\n\r`
@@ -73,12 +86,14 @@ export async function notifyByResults(
 
       // todo: Нужно не пересоздавать каждый раз, а переиспользоваться как-то, либо убрать сия функцию.
       const terminal = vscode.window.createTerminal({
-         name: workspaceFolder?.name ?? problems(totalCount),
-         cwd: workspaceFolder?.uri.fsPath ?? process.cwd(),
+         name: relativePath ?? problems(totalCount),
+         cwd: projectPath ?? process.cwd(),
          message: tmlMessage,
          isTransient: false,
          hideFromUser: true,
       });
       terminal.show();
    }
+
+   return totalCount;
 }

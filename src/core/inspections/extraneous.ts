@@ -1,4 +1,4 @@
-import Arborist from '@npmcli/arborist';
+import type Arborist from '@npmcli/arborist';
 
 export async function getExtraneous(arb: Arborist) {
    const tree = await arb.loadActual();
