@@ -26,6 +26,25 @@ function countWord(count: number, word: string) {
 const problems = withPluralFactory('problem', countWord);
 const packages = withPluralFactory('package', countWord);
 
+const terminalByFolder = new Map<string, vscode.Terminal>();
+
+function getTerminalFor(folder: string, options: Omit<vscode.TerminalOptions, 'cwd'>) {
+   let terminal = terminalByFolder.get(folder);
+
+   // Если терминал есть – убираем его, чтобы отобразить сводное сообщение об ошибках
+   if (terminal) {
+      terminal.dispose();
+   }
+
+   terminal = vscode.window.createTerminal({
+      ...options,
+      cwd: folder,
+   });
+   terminalByFolder.set(folder, terminal);
+
+   return terminal;
+}
+
 export async function notifyByResults(
    scanResults: ScanResult,
    projectPath?: string,
@@ -84,10 +103,8 @@ export async function notifyByResults(
          + `\tExtraneous: ${packages(scanResults.extraneous.length)}\n\n`
       );
 
-      // todo: Нужно не пересоздавать каждый раз, а переиспользоваться как-то, либо убрать сия функцию.
-      const terminal = vscode.window.createTerminal({
+      const terminal = getTerminalFor(projectPath ?? process.cwd(), {
          name: relativePath ?? problems(totalCount),
-         cwd: projectPath ?? process.cwd(),
          message: tmlMessage,
          isTransient: false,
          hideFromUser: true,
