@@ -1,5 +1,7 @@
 # PKGI README
 
+**🇬🇧 EN** • [🇷🇺 RU](./README.RU.md)
+
 *Means: Package Inspactor*
 
 This extension in automatically inspect the compliance of the established packages with the required (in `package.json`).
