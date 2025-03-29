@@ -3,6 +3,7 @@
    "displayName": "Node Modules Packages Inspector",
    "publisher": "pabolkovdn",
    "version": "0.1.0",
+   "icon": "static/icon.png",
    "author": {
       "name": "Daniil Pabolkov",
       "email": "daniil@pabolkov.ru"
