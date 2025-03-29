@@ -2,7 +2,7 @@
 
 **🇬🇧 EN** • [🇷🇺 RU](./README.RU.md)
 
-*Means: Package Inspactor*
+*Means: Package Inspector*
 
 This extension in automatically inspect the compliance of the established packages with the required (in `package.json`).
 
