@@ -12,6 +12,8 @@ export function activate(context: vscode.ExtensionContext) {
          scanner.force();
       })
    );
+
+   scanner.force();
 }
 
 export function deactivate() { }
