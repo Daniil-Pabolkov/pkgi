@@ -32,6 +32,10 @@ Also, you can always call the command `Inspector: Check dependencies` for manual
 
 [Change log](./CHANGELOG.md)
 
+### 0.1.1
+
+Fixed inspection run error if `package.json` have not dependencies changed.
+
 ### 0.1.0
 
 The basic mechanism of the automatic inspection of compliance of the required and installed NPM packages
