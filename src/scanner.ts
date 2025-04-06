@@ -22,7 +22,7 @@ export class Scanner {
    private _progressResolver?: () => void;
 
    // package.json full path => package.json dependencies hash
-   private packageJsonHashMap = new Map<string, string>();
+   private _packageJsonHashMap = new Map<string, string>();
 
    constructor() {
       // package.json
@@ -32,12 +32,12 @@ export class Scanner {
             const {dependencies, devDependencies, peerDependencies} = packageJson;
             const hash = crypto.hash('md5', JSON.stringify(dependencies) + JSON.stringify(devDependencies) + JSON.stringify(peerDependencies));
 
-            const actualHash = this.packageJsonHashMap.get(changedFile.fsPath);
+            const actualHash = this._packageJsonHashMap.get(changedFile.fsPath);
             if (actualHash === hash) {
                return;
             }
 
-            this.packageJsonHashMap.set(changedFile.fsPath, hash);
+            this._packageJsonHashMap.set(changedFile.fsPath, hash);
          } catch {
             return;
          }
