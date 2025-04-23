@@ -13,7 +13,7 @@ export class Scanner {
    readonly nodeModulesWatcher = vscode.workspace.createFileSystemWatcher('**/node_modules/**');
 
    private readonly _projectScanners = new Map<string, ScanTask>();
-   private readonly _results = new Map<string, ScanResult>();
+   private readonly _finishedTasks = new Map<string, ScanTask>();
    private readonly _runedTasks = new Set<ScanTask>();
 
    private readonly _workspaceByProjectRoot = new Map<string, vscode.WorkspaceFolder>();
@@ -89,7 +89,7 @@ export class Scanner {
          return;
       }
 
-      const task = this._projectScanners.get(rootFolder) ?? new ScanTask(rootFolder);
+      const task = this._projectScanners.get(rootFolder) ?? new ScanTask(rootFolder, this.getWorkspaceForFolder(rootFolder));
 
       if (!this._projectScanners.has(rootFolder)) {
          this._projectScanners.set(rootFolder, task);
@@ -125,7 +125,7 @@ export class Scanner {
       this._runedTasks.delete(task);
 
       if (task.result) {
-         this._results.set(task.folder, task.result);
+         this._finishedTasks.set(task.folder, task);
       }
 
       if (this._runedTasks.size === 0) {
@@ -146,14 +146,20 @@ export class Scanner {
    private notify() {
       let problemAmount = 0;
 
-      for (const [folder, result] of this._results) {
+      for (const [folder, task] of this._finishedTasks) {
          const workspaceFolder = this.getWorkspaceForFolder(folder);
-         if (!workspaceFolder || !result.hasProblems) {
+         // Здесь task.result должен быть всегда, т.к. это завершённые задачи,
+         // но проверку по типам всё равно оставим – лишним не будет)
+         if (!workspaceFolder || !task.result || !task.result.hasProblems) {
             continue;
          }
 
          problemAmount++;
-         notifyByResults(result, folder, workspaceFolder);
+         notifyByResults(task.result, {
+            projectPath: folder,
+            workspaceFolder,
+            outputChannel: task.output
+         });
       }
 
       if (problemAmount === 0) {
