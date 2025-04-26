@@ -45,10 +45,15 @@ function getTerminalFor(folder: string, options: Omit<vscode.TerminalOptions, 'c
    return terminal;
 }
 
-export async function notifyByResults(
-   scanResults: ScanResult,
+export interface NotifyOptions {
    projectPath?: string,
    workspaceFolder?: vscode.WorkspaceFolder
+   outputChannel?: vscode.OutputChannel,
+}
+
+export async function notifyByResults(
+   scanResults: ScanResult,
+   { projectPath, workspaceFolder, outputChannel }: NotifyOptions
 ) {
    const totalCount = scanResults.missing.length + scanResults.invalid.length + scanResults.extraneous.length;
 
@@ -87,29 +92,39 @@ export async function notifyByResults(
 
    let action: NotifyActions | undefined;
 
-   if (hasFatals) {
-      action = await vscode.window.showErrorMessage(message, NotifyActions.Close, NotifyActions.OpenTerminal);
-   } else {
-      action = await vscode.window.showWarningMessage(message, NotifyActions.Close, NotifyActions.OpenTerminal);
+   const messageMethod = hasFatals ? vscode.window.showErrorMessage : vscode.window.showWarningMessage;
+   const actionControls = [NotifyActions.Close, NotifyActions.OpenTerminal];
+
+   if (outputChannel) {
+      actionControls.splice(1, 0, NotifyActions.ShowDetails);
    }
 
-   if (action === NotifyActions.OpenTerminal) {
-      const tmlMessage = (
-         `${problems(totalCount)} founds`
+   action = await messageMethod(message, ...actionControls);
+
+   switch (action) {
+      case NotifyActions.OpenTerminal: {
+         const tmlMessage = (
+            `${problems(totalCount)} founds`
          + (relativePath ? ` in "${relativePath}"` : '')
          + ':\n\r'
          + `\tMissing:    ${packages(scanResults.missing.length)}\n\r`
          + `\tInvalid:    ${packages(scanResults.invalid.length)}\n\r`
          + `\tExtraneous: ${packages(scanResults.extraneous.length)}\n\n`
-      );
+         );
 
-      const terminal = getTerminalFor(projectPath ?? process.cwd(), {
-         name: relativePath ?? problems(totalCount),
-         message: tmlMessage,
-         isTransient: false,
-         hideFromUser: true,
-      });
-      terminal.show();
+         const terminal = getTerminalFor(projectPath ?? process.cwd(), {
+            name: relativePath ?? problems(totalCount),
+            message: tmlMessage,
+            isTransient: false,
+            hideFromUser: true,
+         });
+         terminal.show();
+         break;
+      }
+      case NotifyActions.ShowDetails: {
+         outputChannel?.show();
+         break;
+      }
    }
 
    return totalCount;
