@@ -14,15 +14,13 @@ Extension monitors changes in dependencies in `package.json`; updating `package-
 
 In case of detection of problems, notifies this.
 
-You can also always start a forced check through [command pallete](#Commands)
-
-Also, you can always call the command `Inspector: Check dependencies` for manual run inspection.
+You can also always start a forced check through [command pallete](#Commands): run `PKGI: Inspect dependencies` (shortly `inspect`)
 
 ## Commands
 
 | Команда | Сокращение | Описание |
 |---------|------------|----------|
-| `Inspector: Check dependencies` | `Inspect` | Launch for a compulsory check of dependencies |
+| `PKGI: Inspect dependencies` | `inspect` | Run force check of dependencies for all projects |
 
 ## Extension Settings
 
@@ -30,7 +28,14 @@ Also, you can always call the command `Inspector: Check dependencies` for manual
 
 ## Release Notes
 
-[Change log](./CHANGELOG.md)
+[Detailed change log](./CHANGELOG.md)
+
+Summary:
+
+### 0.1.2
+
+Fixed error of redundant scanning.
+Added detailed result log of scanning into output channel/
 
 ### 0.1.1
 
@@ -38,4 +43,4 @@ Fixed inspection run error if `package.json` have not dependencies changed.
 
 ### 0.1.0
 
-The basic mechanism of the automatic inspection of compliance of the required and installed NPM packages
+The basic mechanism of the automatic inspection of compliance of the required and installed NPM packages.
