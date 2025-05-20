@@ -194,6 +194,8 @@ export class Scanner {
          });
       }
 
+      this._finishedTasks.clear();
+
       if (problemAmount === 0) {
          vscode.window.showInformationMessage('All rights!');
       }
