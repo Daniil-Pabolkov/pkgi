@@ -13,7 +13,7 @@ export class Scanner {
    readonly nodeModulesWatcher = vscode.workspace.createFileSystemWatcher('**/node_modules/**');
 
    private readonly _projectScanners = new Map<string, ScanTask>();
-   private readonly _results = new Map<string, ScanResult>();
+   private readonly _finishedTasks = new Map<string, ScanTask>();
    private readonly _runedTasks = new Set<ScanTask>();
 
    private readonly _workspaceByProjectRoot = new Map<string, vscode.WorkspaceFolder>();
@@ -22,47 +22,24 @@ export class Scanner {
    private _progressResolver?: () => void;
 
    // package.json full path => package.json dependencies hash
-   private packageJsonHashMap = new Map<string, string>();
+   private _packageJsonHashMap = new Map<string, string>();
 
    constructor() {
       // package.json
-      this.packageJsonWatcher.onDidChange(changedFile => {
-         try {
-            const packageJson = JSON.parse(fs.readFileSync(changedFile.fsPath, 'utf-8'));
-            const {dependencies, devDependencies, peerDependencies} = packageJson;
-            const hash = crypto.hash('md5', JSON.stringify(dependencies) + JSON.stringify(devDependencies) + JSON.stringify(peerDependencies));
-
-            const actualHash = this.packageJsonHashMap.get(changedFile.fsPath);
-            if (actualHash === hash) {
-               return;
-            }
-
-            this.packageJsonHashMap.set(changedFile.fsPath, hash);
-         } catch {
-            return;
-         }
-
-         // При изменении запускаем проверку
-         if (this.isProjectRootPath(changedFile)) {
-            this.scan(changedFile);
-         }
-      });
+      this.packageJsonWatcher.onDidCreate(this.packageCreateHandler.bind(this));
       this.packageJsonWatcher.onDidDelete(deletedFile => {
          // При удалении package.json удаляем сканнер для проекта
          if (this.isProjectRootPath(deletedFile)) {
             this.deleteScanner(deletedFile);
          }
       });
-      this.packageJsonWatcher.onDidCreate(createdFile => {
-         if (this.isProjectRootPath(createdFile)) {
-            this.scan(createdFile);
-         }
-      });
 
       // package-lock.json
-      this.lockFilesWatcher.onDidChange(changedFile => {
-         if (this.isProjectRootPath(changedFile)) {
-            this.scan(changedFile);
+      this.lockFilesWatcher.onDidCreate(this.packageCreateHandler.bind(this));
+      this.lockFilesWatcher.onDidDelete(deletedFile => {
+         // При удалении package.json удаляем сканнер для проекта
+         if (this.isProjectRootPath(deletedFile)) {
+            this.deleteScanner(deletedFile);
          }
       });
 
@@ -78,7 +55,7 @@ export class Scanner {
 
    force() {
       vscode.workspace.findFiles('**/package-lock.json', '**/node_modules/**').then(uris => {
-         uris.forEach(this.scan.bind(this));
+         uris.forEach(this.packageCreateHandler.bind(this));
       });
    }
 
@@ -89,7 +66,7 @@ export class Scanner {
          return;
       }
 
-      const task = this._projectScanners.get(rootFolder) ?? new ScanTask(rootFolder);
+      const task = this._projectScanners.get(rootFolder) ?? new ScanTask(rootFolder, this.getWorkspaceForFolder(rootFolder));
 
       if (!this._projectScanners.has(rootFolder)) {
          this._projectScanners.set(rootFolder, task);
@@ -99,6 +76,61 @@ export class Scanner {
          task.run();
       } else {
          this.startScan(task);
+      }
+   }
+
+   private isPackageWasChanged(fileUri: vscode.Uri) {
+      try {
+         const packagePath = path.basename(fileUri.fsPath) === 'package.json'
+            ? fileUri.fsPath
+            : path.join(this.getProjectFolder(fileUri), 'package.json');
+         const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf-8'));
+         const {dependencies, devDependencies, peerDependencies} = packageJson;
+         const hash = crypto.hash('md5', JSON.stringify(dependencies) + JSON.stringify(devDependencies) + JSON.stringify(peerDependencies));
+
+         const actualHash = this._packageJsonHashMap.get(fileUri.fsPath);
+         if (actualHash === hash) {
+            return false;
+         }
+
+         this._packageJsonHashMap.set(fileUri.fsPath, hash);
+      } catch {
+         return false;
+      }
+
+      return true;
+   }
+
+   private packageCreateHandler(fileUri: vscode.Uri) {
+      const projectPath = this.getProjectFolder(fileUri);
+
+      if (!this._projectScanners.has(projectPath)) {
+         this.scanProject(fileUri);
+
+         const packageLockPath = path.join(projectPath, 'package-lock.json');
+         const packagePath = path.join(projectPath, 'package.json');
+
+         fs.watchFile(packageLockPath, () => {
+            this.packageChangedHandler(vscode.Uri.parse(packageLockPath));
+         });
+         fs.watchFile(packagePath, () => {
+            this.packageChangedHandler(vscode.Uri.parse(packageLockPath));
+         });
+      }
+   }
+
+   private packageChangedHandler(fileUri: vscode.Uri) {
+      if (!this.isPackageWasChanged(fileUri)) {
+         return;
+      }
+
+      // При изменении запускаем проверку
+      this.scanProject(fileUri);
+   }
+
+   private scanProject(fileUri: vscode.Uri) {
+      if (this.isProjectRootPath(fileUri)) {
+         this.scan(fileUri);
       }
    }
 
@@ -125,7 +157,7 @@ export class Scanner {
       this._runedTasks.delete(task);
 
       if (task.result) {
-         this._results.set(task.folder, task.result);
+         this._finishedTasks.set(task.folder, task);
       }
 
       if (this._runedTasks.size === 0) {
@@ -146,15 +178,23 @@ export class Scanner {
    private notify() {
       let problemAmount = 0;
 
-      for (const [folder, result] of this._results) {
+      for (const [folder, task] of this._finishedTasks) {
          const workspaceFolder = this.getWorkspaceForFolder(folder);
-         if (!workspaceFolder || !result.hasProblems) {
+         // Здесь task.result должен быть всегда, т.к. это завершённые задачи,
+         // но проверку по типам всё равно оставим – лишним не будет)
+         if (!workspaceFolder || !task.result || !task.result.hasProblems) {
             continue;
          }
 
          problemAmount++;
-         notifyByResults(result, folder, workspaceFolder);
+         notifyByResults(task.result, {
+            projectPath: folder,
+            workspaceFolder,
+            outputChannel: task.output
+         });
       }
+
+      this._finishedTasks.clear();
 
       if (problemAmount === 0) {
          vscode.window.showInformationMessage('All rights!');
