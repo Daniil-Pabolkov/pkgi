@@ -26,43 +26,20 @@ export class Scanner {
 
    constructor() {
       // package.json
-      this.packageJsonWatcher.onDidChange(changedFile => {
-         try {
-            const packageJson = JSON.parse(fs.readFileSync(changedFile.fsPath, 'utf-8'));
-            const {dependencies, devDependencies, peerDependencies} = packageJson;
-            const hash = crypto.hash('md5', JSON.stringify(dependencies) + JSON.stringify(devDependencies) + JSON.stringify(peerDependencies));
-
-            const actualHash = this._packageJsonHashMap.get(changedFile.fsPath);
-            if (actualHash === hash) {
-               return;
-            }
-
-            this._packageJsonHashMap.set(changedFile.fsPath, hash);
-         } catch {
-            return;
-         }
-
-         // При изменении запускаем проверку
-         if (this.isProjectRootPath(changedFile)) {
-            this.scan(changedFile);
-         }
-      });
+      this.packageJsonWatcher.onDidCreate(this.packageCreateHandler.bind(this));
       this.packageJsonWatcher.onDidDelete(deletedFile => {
          // При удалении package.json удаляем сканнер для проекта
          if (this.isProjectRootPath(deletedFile)) {
             this.deleteScanner(deletedFile);
          }
       });
-      this.packageJsonWatcher.onDidCreate(createdFile => {
-         if (this.isProjectRootPath(createdFile)) {
-            this.scan(createdFile);
-         }
-      });
 
       // package-lock.json
-      this.lockFilesWatcher.onDidChange(changedFile => {
-         if (this.isProjectRootPath(changedFile)) {
-            this.scan(changedFile);
+      this.lockFilesWatcher.onDidCreate(this.packageCreateHandler.bind(this));
+      this.lockFilesWatcher.onDidDelete(deletedFile => {
+         // При удалении package.json удаляем сканнер для проекта
+         if (this.isProjectRootPath(deletedFile)) {
+            this.deleteScanner(deletedFile);
          }
       });
 
@@ -78,7 +55,7 @@ export class Scanner {
 
    force() {
       vscode.workspace.findFiles('**/package-lock.json', '**/node_modules/**').then(uris => {
-         uris.forEach(this.scan.bind(this));
+         uris.forEach(this.packageCreateHandler.bind(this));
       });
    }
 
@@ -99,6 +76,61 @@ export class Scanner {
          task.run();
       } else {
          this.startScan(task);
+      }
+   }
+
+   private isPackageWasChanged(fileUri: vscode.Uri) {
+      try {
+         const packagePath = path.basename(fileUri.fsPath) === 'package.json'
+            ? fileUri.fsPath
+            : path.join(this.getProjectFolder(fileUri), 'package.json');
+         const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf-8'));
+         const {dependencies, devDependencies, peerDependencies} = packageJson;
+         const hash = crypto.hash('md5', JSON.stringify(dependencies) + JSON.stringify(devDependencies) + JSON.stringify(peerDependencies));
+
+         const actualHash = this._packageJsonHashMap.get(fileUri.fsPath);
+         if (actualHash === hash) {
+            return false;
+         }
+
+         this._packageJsonHashMap.set(fileUri.fsPath, hash);
+      } catch {
+         return false;
+      }
+
+      return true;
+   }
+
+   private packageCreateHandler(fileUri: vscode.Uri) {
+      const projectPath = this.getProjectFolder(fileUri);
+
+      if (!this._projectScanners.has(projectPath)) {
+         this.scanProject(fileUri);
+
+         const packageLockPath = path.join(projectPath, 'package-lock.json');
+         const packagePath = path.join(projectPath, 'package.json');
+
+         fs.watchFile(packageLockPath, () => {
+            this.packageChangedHandler(vscode.Uri.parse(packageLockPath));
+         });
+         fs.watchFile(packagePath, () => {
+            this.packageChangedHandler(vscode.Uri.parse(packageLockPath));
+         });
+      }
+   }
+
+   private packageChangedHandler(fileUri: vscode.Uri) {
+      if (!this.isPackageWasChanged(fileUri)) {
+         return;
+      }
+
+      // При изменении запускаем проверку
+      this.scanProject(fileUri);
+   }
+
+   private scanProject(fileUri: vscode.Uri) {
+      if (this.isProjectRootPath(fileUri)) {
+         this.scan(fileUri);
       }
    }
 
