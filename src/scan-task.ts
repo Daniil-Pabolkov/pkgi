@@ -159,6 +159,6 @@ export class ScanTask {
    }
 
    private getPackageRow(node: Arborist.Node, isLast = false, withNextTypeRow = true): string {
-      return `${withNextTypeRow ? '┆' : ' '} ${isLast ? '└' : '├'}─── ${node.pkgid}`;
+      return `${withNextTypeRow ? '╷' : ' '} ${isLast ? '└' : '├'}─── ${node.pkgid}`;
    }
 }
