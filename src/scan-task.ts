@@ -118,14 +118,17 @@ export class ScanTask {
    private logResults() {
       const projectPath = this.getFolderWithWorkspaceInfo();
 
+      const now = new Date();
+      const date = now.toLocaleDateString('ru-RU');
+      const time = now.toLocaleTimeString('ru-RU');
+
       this.output.appendLine('');
-      this.output.appendLine(`Project [${projectPath}]`);
+      this.output.appendLine(`Project [${projectPath}] (${time} ${date})`);
       this.output.appendLine(`<full path: ${this.folder}>`);
 
       if (!this._result) {
          return void this.output.appendLine('ℹ️ Scan did not ran yet');
       }
-
 
       this.output.appendLine('• Found problems:');
 
