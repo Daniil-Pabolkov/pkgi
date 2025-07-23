@@ -223,7 +223,10 @@ export class Scanner {
       this._finishedTasks.clear();
 
       if (problemAmount === 0) {
-         vscode.window.showInformationMessage('All rights!');
+         if (vscode.workspace.getConfiguration().get('pkgi.notifications.success')) {
+            vscode.window.showInformationMessage('All rights!');
+         }
+         log('Scan', 'Scan is completed successful');
       }
    }
 
