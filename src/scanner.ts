@@ -140,7 +140,7 @@ export class Scanner {
          this.packageChangedHandler(vscode.Uri.parse(lockfilePath));
       });
       fs.watchFile(packagePath, () => {
-         this.packageChangedHandler(vscode.Uri.parse(lockfilePath));
+         this.packageChangedHandler(vscode.Uri.parse(packagePath));
       });
    }
 
