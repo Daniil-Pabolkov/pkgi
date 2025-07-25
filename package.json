@@ -1,8 +1,9 @@
 {
    "name": "pkgi",
    "displayName": "Node Modules Packages Inspector",
+   "description": "%extension:desc%",
    "publisher": "pabolkovdn",
-   "version": "0.1.2",
+   "version": "0.1.3",
    "icon": "static/icon.png",
    "author": {
       "name": "Daniil Pabolkov",
@@ -35,8 +36,24 @@
       "commands": [
          {
             "command": "pkgi.inspect",
-            "title": "PKGI: Inspect dependencies",
-            "shortTitle": "pkgi: inspect"
+            "title": "%commands.inspect:title%",
+            "shortTitle": "%commands.inspect:short%"
+         }
+      ],
+      "configuration": [
+         {
+            "order": 0,
+            "id": "Notifications",
+            "title": "%settings.notifications:title%",
+            "properties": {
+               "pkgi.notifications.success": {
+                  "order": 0,
+                  "title": "%settings.notifications.success:title%",
+                  "description": "%settings.notifications.success:desc%",
+                  "type": "boolean",
+                  "default": true
+               }
+            }
          }
       ]
    },

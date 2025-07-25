@@ -6,6 +6,8 @@ import crypto from 'crypto';
 import type { ScanResult } from './core/scan-result';
 import { notifyByResults } from './core/notifications/problems-notify';
 import { ScanTask } from './scan-task';
+import {debounce} from './utils/debounce';
+import {log} from './utils/log';
 
 export class Scanner {
    readonly packageJsonWatcher = vscode.workspace.createFileSystemWatcher('**/package.json');
@@ -23,6 +25,8 @@ export class Scanner {
 
    // package.json full path => package.json dependencies hash
    private _packageJsonHashMap = new Map<string, string>();
+   // pakcage-lock.json full path => package-lock.json hash
+   private _lockfileJsonHashMap = new Map<string, string>();
 
    constructor() {
       // package.json
@@ -33,19 +37,27 @@ export class Scanner {
             this.deleteScanner(deletedFile);
          }
       });
+      vscode.workspace.findFiles('**/package.json', '**/node_modules/**')
+         .then((uris: vscode.Uri[]) => uris.forEach(this.packageCreateHandler.bind(this)));
 
       // package-lock.json
       this.lockFilesWatcher.onDidCreate(this.packageCreateHandler.bind(this));
       this.lockFilesWatcher.onDidDelete(deletedFile => {
-         // При удалении package.json удаляем сканнер для проекта
+         // При удалении package-lock.json удаляем сканнер для проекта
          if (this.isProjectRootPath(deletedFile)) {
             this.deleteScanner(deletedFile);
          }
       });
+      vscode.workspace.findFiles('**/package-lock.json', '**/node_modules/**')
+         .then((uris: vscode.Uri[]) => uris.forEach(this.packageCreateHandler.bind(this)));
 
       // node_modules
-      this.nodeModulesWatcher.onDidDelete(deletedFile => this.scan(deletedFile));
+      const debouncedScan = debounce(this.scan.bind(this), 10_000);
+      this.nodeModulesWatcher.onDidDelete(debouncedScan);
+      this.nodeModulesWatcher.onDidChange(debouncedScan);
+      this.nodeModulesWatcher.onDidCreate(debouncedScan);
    }
+
 
    * disposableItems() {
       yield this.packageJsonWatcher;
@@ -73,27 +85,33 @@ export class Scanner {
       }
 
       if (this._runedTasks.has(task)) {
+         log('Scan', `exists for ${rootFolder}`);
          task.run();
       } else {
+         log('Scan', `run for ${rootFolder}`);
          this.startScan(task);
       }
    }
 
    private isPackageWasChanged(fileUri: vscode.Uri) {
       try {
-         const packagePath = path.basename(fileUri.fsPath) === 'package.json'
-            ? fileUri.fsPath
-            : path.join(this.getProjectFolder(fileUri), 'package.json');
+         const projectRoot = this.getProjectFolder(fileUri);
+         const packagePath = path.join(projectRoot, 'package.json');
+         const lockfilePath = path.join(projectRoot, 'package-lock.json');
+
          const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf-8'));
          const {dependencies, devDependencies, peerDependencies} = packageJson;
-         const hash = crypto.hash('md5', JSON.stringify(dependencies) + JSON.stringify(devDependencies) + JSON.stringify(peerDependencies));
+         const packageHash = crypto.hash('md5', JSON.stringify(dependencies) + JSON.stringify(devDependencies) + JSON.stringify(peerDependencies));
+         const lockfileHash = crypto.hash('md5', fs.readFileSync(lockfilePath));
 
-         const actualHash = this._packageJsonHashMap.get(fileUri.fsPath);
-         if (actualHash === hash) {
+         const actualPackageHash = this._packageJsonHashMap.get(packagePath);
+         const actualLockfileHash = this._lockfileJsonHashMap.get(lockfilePath);
+         if (actualPackageHash === packageHash && actualLockfileHash === lockfileHash) {
             return false;
          }
 
-         this._packageJsonHashMap.set(fileUri.fsPath, hash);
+         this._packageJsonHashMap.set(packagePath, packageHash);
+         this._lockfileJsonHashMap.set(lockfilePath, lockfileHash);
       } catch {
          return false;
       }
@@ -104,19 +122,26 @@ export class Scanner {
    private packageCreateHandler(fileUri: vscode.Uri) {
       const projectPath = this.getProjectFolder(fileUri);
 
-      if (!this._projectScanners.has(projectPath)) {
-         this.scanProject(fileUri);
+      log('Watcher', `for ${fileUri.fsPath}`);
 
-         const packageLockPath = path.join(projectPath, 'package-lock.json');
-         const packagePath = path.join(projectPath, 'package.json');
-
-         fs.watchFile(packageLockPath, () => {
-            this.packageChangedHandler(vscode.Uri.parse(packageLockPath));
-         });
-         fs.watchFile(packagePath, () => {
-            this.packageChangedHandler(vscode.Uri.parse(packageLockPath));
-         });
+      if (this._projectScanners.has(projectPath)) {
+         log('Watcher', 1, 'Is already exists');
+         return;
       }
+
+      log('Watcher', 1, 'Is new – create watch handler for package.json and package-lock.json');
+
+      this.scanProject(fileUri);
+
+      const lockfilePath = path.join(projectPath, 'package-lock.json');
+      const packagePath = path.join(projectPath, 'package.json');
+
+      fs.watchFile(lockfilePath, () => {
+         this.packageChangedHandler(vscode.Uri.parse(lockfilePath));
+      });
+      fs.watchFile(packagePath, () => {
+         this.packageChangedHandler(vscode.Uri.parse(packagePath));
+      });
    }
 
    private packageChangedHandler(fileUri: vscode.Uri) {
@@ -161,6 +186,7 @@ export class Scanner {
       }
 
       if (this._runedTasks.size === 0) {
+         log('Scan', `for ${task.folder} finished`);
          this._progressResolver?.();
       }
    }
@@ -197,21 +223,21 @@ export class Scanner {
       this._finishedTasks.clear();
 
       if (problemAmount === 0) {
-         vscode.window.showInformationMessage('All rights!');
+         if (vscode.workspace.getConfiguration().get('pkgi.notifications.success')) {
+            vscode.window.showInformationMessage('All rights!');
+         }
+         log('Scan', 'Scan is completed successful');
       }
    }
 
    private getProjectFolder(fileUri: vscode.Uri): string {
-      const nodeModulesIndex = fileUri.fsPath.indexOf('/node_modules/');
-      const nnmPath = nodeModulesIndex > -1
-         ? path.resolve(fileUri.fsPath.substring(0, nodeModulesIndex))
-         : fileUri.fsPath;
+      const rootPath = fileUri.fsPath.replace(/\/node_modules(\/.*)?$/, '');
 
-      if (fs.lstatSync(nnmPath).isDirectory()) {
-         return nnmPath;
+      if (fs.lstatSync(rootPath).isDirectory()) {
+         return rootPath;
       }
 
-      return path.dirname(nnmPath);
+      return path.dirname(rootPath);
    }
 
    private isProjectRootPath(uri: vscode.Uri): boolean {

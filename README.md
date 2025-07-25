@@ -18,19 +18,26 @@ You can also always start a forced check through [command pallete](#Commands): r
 
 ## Commands
 
-| Команда | Сокращение | Описание |
-|---------|------------|----------|
+| Command | Short | Description |
+|---------|-------|-------------|
 | `PKGI: Inspect dependencies` | `inspect` | Run force check of dependencies for all projects |
 
 ## Extension Settings
 
-**Coming soon**
+| Option | Key | Description |
+|--------|-----|-------------|
+| Success notification | `pkgi.notifications.success` | Toggle display notification about has no errors |
 
 ## Release Notes
 
 [Detailed change log](./CHANGELOG.md)
 
 Summary:
+
+### 0.1.3
+
+The scanning delay for changes inside node_modules has been added so as not to be spam by notifications.
+Added the opportunity to turn off the notification of the completion of scanning without errors from the settings.
 
 ### 0.1.2
 
