@@ -1,6 +1,4 @@
 {
-  "extension:desc": "Наблюдает за изменениями package.json, установленных пакетов и их зависимостей",
-
   "settings.notifications:title": "Уведомления",
   "settings.notifications.success:title": "Успешное сканирование",
   "settings.notifications.success:desc": "Уведомление об отсутствии ошибок в результате сканирования",
