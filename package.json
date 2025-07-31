@@ -3,7 +3,7 @@
    "displayName": "Node Modules Packages Inspector",
    "description": "Observe changes to the file, installed packages, and their dependencies",
    "publisher": "pabolkovdn",
-   "version": "0.1.3",
+   "version": "0.1.4",
    "icon": "static/icon.png",
    "author": {
       "name": "Daniil Pabolkov",

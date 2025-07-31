@@ -34,6 +34,12 @@ You can also always start a forced check through [command pallete](#Commands): r
 
 Summary:
 
+### 0.1.4
+
+No features changes.
+
+[Tech] Fix `package.json` (description and dependencies versions)
+
 ### 0.1.3
 
 The scanning delay for changes inside node_modules has been added so as not to be spam by notifications.
@@ -42,7 +48,7 @@ Added the opportunity to turn off the notification of the completion of scanning
 ### 0.1.2
 
 Fixed error of redundant scanning.
-Added detailed result log of scanning into output channel/
+Added detailed result log of scanning into output channel.
 
 ### 0.1.1
 
