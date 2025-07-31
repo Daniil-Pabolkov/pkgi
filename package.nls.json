@@ -1,6 +1,4 @@
 {
-  "extension:desc": "Observe changes to the file, installed packages, and their dependencies",
-
   "settings.notifications:title": "Notifications",
   "settings.notifications.success:title": "Success",
   "settings.notifications.success:desc": "Notification of no errors in the result of the scan",
